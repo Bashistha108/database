@@ -21,7 +21,7 @@ export default function TableDetails() {
 
   const DB_TYPES = [
     'INTEGER', 'BIGINT', 'NUMERIC', 'REAL', 'DOUBLE PRECISION',
-    'VARCHAR(255)', 'TEXT', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'JSONB', 'BYTEA'
+    'VARCHAR(255)', 'TEXT', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'JSONB', 'BYTEA', 'ENUM'
   ];
 
   // Add to existing state at the top:
@@ -410,15 +410,32 @@ export default function TableDetails() {
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>Data Type</label>
                 <select 
-                  value={editingCol.type} 
-                  onChange={e => setEditingCol({...editingCol, type: e.target.value})}
-                  disabled={!!editingCol.originalName}
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-dark)', color: 'white', outline: 'none', opacity: editingCol.originalName ? 0.5 : 1 }}
+                  value={editingCol.type.startsWith('ENUM') ? 'ENUM' : editingCol.type} 
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === 'ENUM') setEditingCol({...editingCol, type: 'ENUM()'});
+                    else setEditingCol({...editingCol, type: val});
+                  }}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-dark)', color: 'white', outline: 'none' }}
                 >
-                  <option value={editingCol.type}>{editingCol.type}</option>
-                  {!editingCol.originalName && DB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {!DB_TYPES.includes(editingCol.type) && !editingCol.type.startsWith('ENUM') && (
+                    <option value={editingCol.type}>{editingCol.type}</option>
+                  )}
+                  {DB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                {editingCol.originalName && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>Type changes are restricted to prevent errors.</span>}
+
+                {editingCol.type.startsWith('ENUM') && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <input 
+                      type="text"
+                      value={editingCol.type === 'ENUM()' ? '' : editingCol.type.substring(5, editingCol.type.length - 1)}
+                      onChange={e => setEditingCol({...editingCol, type: `ENUM(${e.target.value})`})}
+                      placeholder="e.g. 'active', 'inactive'"
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-dark)', color: 'white', outline: 'none' }}
+                    />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>Comma separated values enclosed in single quotes</span>
+                  </div>
+                )}
               </div>
 
               <div>

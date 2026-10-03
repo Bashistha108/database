@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Save, GripVertical } from 'lucide-react';
 
 const DB_TYPES = [
   'INTEGER', 'BIGINT', 'NUMERIC', 'REAL', 'DOUBLE PRECISION',
-  'VARCHAR(255)', 'TEXT', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'JSONB', 'BYTEA'
+  'VARCHAR(255)', 'TEXT', 'BOOLEAN', 'DATE', 'TIMESTAMP', 'TIMESTAMPTZ', 'JSONB', 'BYTEA', 'ENUM'
 ];
 
 export default function CreateTable() {
   const navigate = useNavigate();
   const [tableName, setTableName] = useState('');
   const [columns, setColumns] = useState([
-    { name: 'id', type: 'INTEGER', nullable: false, defaultValue: '', primaryKey: true }
+    { _id: Math.random().toString(36).substr(2, 9), name: 'id', type: 'INTEGER', nullable: false, defaultValue: '', primaryKey: true }
   ]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
   const addColumn = () => {
-    setColumns([...columns, { name: '', type: 'VARCHAR(255)', nullable: true, defaultValue: '', primaryKey: false }]);
+    setColumns([...columns, { _id: Math.random().toString(36).substr(2, 9), name: '', type: 'VARCHAR(255)', nullable: true, defaultValue: '', primaryKey: false }]);
   };
 
   const updateColumn = (index: number, field: string, value: any) => {
@@ -28,6 +29,28 @@ export default function CreateTable() {
 
   const removeColumn = (index: number) => {
     setColumns(columns.filter((_, i) => i !== index));
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === index) return;
+    
+    const newCols = [...columns];
+    const draggedItem = newCols[draggedIdx];
+    newCols.splice(draggedIdx, 1);
+    newCols.splice(index, 0, draggedItem);
+    
+    setColumns(newCols);
+    setDraggedIdx(null);
   };
 
   const handleSave = async () => {
@@ -43,7 +66,7 @@ export default function CreateTable() {
       const response = await fetch('http://localhost:8080/api/schema/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableName, columns })
+        body: JSON.stringify({ tableName, columns: columns.map(({ _id, ...rest }) => rest) })
       });
       
       const data = await response.json();
@@ -107,6 +130,7 @@ export default function CreateTable() {
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: '40px' }}></th>
                 <th>Name</th>
                 <th>Type</th>
                 <th>Nullable</th>
@@ -117,7 +141,17 @@ export default function CreateTable() {
             </thead>
             <tbody>
               {columns.map((col, idx) => (
-                <tr key={idx}>
+                <tr 
+                  key={col._id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  style={{ opacity: draggedIdx === idx ? 0.5 : 1 }}
+                >
+                  <td style={{ cursor: 'grab', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <GripVertical size={16} />
+                  </td>
                   <td>
                     <input 
                       type="text" 
@@ -129,12 +163,29 @@ export default function CreateTable() {
                   </td>
                   <td>
                     <select 
-                      value={col.type}
-                      onChange={(e) => updateColumn(idx, 'type', e.target.value)}
+                      value={col.type.startsWith('ENUM') ? 'ENUM' : col.type}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'ENUM') updateColumn(idx, 'type', 'ENUM()');
+                        else updateColumn(idx, 'type', val);
+                      }}
                       style={{ padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-dark)', color: 'white', width: '100%' }}
                     >
+                      {!DB_TYPES.includes(col.type) && !col.type.startsWith('ENUM') && (
+                        <option value={col.type}>{col.type}</option>
+                      )}
                       {DB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
+
+                    {col.type.startsWith('ENUM') && (
+                      <input 
+                        type="text"
+                        value={col.type === 'ENUM()' ? '' : col.type.substring(5, col.type.length - 1)}
+                        onChange={(e) => updateColumn(idx, 'type', `ENUM(${e.target.value})`)}
+                        placeholder="'A', 'B'"
+                        style={{ marginTop: '0.5rem', padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-dark)', color: 'white', width: '100%' }}
+                      />
+                    )}
                   </td>
                   <td>
                     <input 

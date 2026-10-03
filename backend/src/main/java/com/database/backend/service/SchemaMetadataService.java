@@ -27,13 +27,17 @@ public class SchemaMetadataService {
 
     public List<Map<String, Object>> getTableColumns(String tableName) {
         String sql = "SELECT " +
-                     "  column_name as \"name\", " +
-                     "  data_type as \"type\", " +
-                     "  is_nullable as \"nullable\", " +
-                     "  column_default as \"defaultValue\" " +
-                     "FROM information_schema.columns " +
-                     "WHERE table_schema = 'user_data' AND table_name = ? " +
-                     "ORDER BY ordinal_position";
+                     "  c.column_name as \"name\", " +
+                     "  CASE WHEN c.data_type = 'USER-DEFINED' THEN " +
+                     "    COALESCE((SELECT 'ENUM(' || COALESCE(string_agg('''' || e.enumlabel || '''', ', ' ORDER BY e.enumsortorder), '') || ')' " +
+                     "              FROM pg_type t LEFT JOIN pg_enum e ON e.enumtypid = t.oid " +
+                     "              WHERE t.typname = c.udt_name GROUP BY t.typname), c.udt_name) " +
+                     "  ELSE c.data_type END as \"type\", " +
+                     "  c.is_nullable as \"nullable\", " +
+                     "  c.column_default as \"defaultValue\" " +
+                     "FROM information_schema.columns c " +
+                     "WHERE c.table_schema = 'user_data' AND c.table_name = ? " +
+                     "ORDER BY c.ordinal_position";
         return jdbcTemplate.queryForList(sql, tableName);
     }
 
