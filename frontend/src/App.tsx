@@ -8,13 +8,15 @@ import Relationships from './pages/Relationships';
 import BrowseData from './pages/BrowseData';
 import Console from './pages/Console';
 import Settings from './pages/Settings';
+import Home from './pages/Home';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/tables" replace />} />
+          <Route index element={<Navigate to="/home" replace />} />
+          <Route path="home" element={<Home />} />
           <Route path="tables" element={<Tables />} />
           <Route path="tables/new" element={<CreateTable />} />
           <Route path="tables/:tableName" element={<TableDetails />} />
