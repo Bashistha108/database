@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: setup
+      changes:
+        - sql:
+            sql: CREATE SCHEMA IF NOT EXISTS user_data;
