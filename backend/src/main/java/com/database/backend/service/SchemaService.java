@@ -20,6 +20,23 @@ public class SchemaService {
         return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
+    private String resolveType(String tableName, String columnName, String type) {
+        if (type == null) return type;
+        if (type.toUpperCase().trim().startsWith("ENUM(")) {
+            String typeStr = type.trim();
+            String enumTypeName = (tableName + "_" + columnName + "_enum").toLowerCase().replaceAll("[^a-z0-9_]", "");
+            String enumValues = typeStr.substring(5, typeStr.length() - 1);
+            
+            try {
+                jdbcTemplate.execute("CREATE TYPE user_data.\"" + enumTypeName + "\" AS ENUM (" + enumValues + ")");
+            } catch (Exception e) {
+                // Ignore if already exists
+            }
+            return "user_data.\"" + enumTypeName + "\"";
+        }
+        return type;
+    }
+
     public void createTable(CreateTableRequest request) {
         StringBuilder sql = new StringBuilder("CREATE TABLE user_data.");
         sql.append(quote(request.getTableName())).append(" (");
@@ -27,7 +44,8 @@ public class SchemaService {
         List<ColumnDefinition> cols = request.getColumns();
         for (int i = 0; i < cols.size(); i++) {
             ColumnDefinition col = cols.get(i);
-            sql.append(quote(col.getName())).append(" ").append(col.getType());
+            String actualType = resolveType(request.getTableName(), col.getName(), col.getType());
+            sql.append(quote(col.getName())).append(" ").append(actualType);
             if (!col.isNullable()) {
                 sql.append(" NOT NULL");
             }
@@ -57,9 +75,10 @@ public class SchemaService {
     }
 
     public void addColumn(String tableName, ColumnDefinition col) {
+        String actualType = resolveType(tableName, col.getName(), col.getType());
         StringBuilder sql = new StringBuilder("ALTER TABLE user_data.");
         sql.append(quote(tableName)).append(" ADD COLUMN ");
-        sql.append(quote(col.getName())).append(" ").append(col.getType());
+        sql.append(quote(col.getName())).append(" ").append(actualType);
         
         if (!col.isNullable()) {
             sql.append(" NOT NULL");
@@ -83,6 +102,11 @@ public class SchemaService {
     }
 
     public void alterColumnProperties(String tableName, String columnName, ColumnDefinition newDef) {
+        if (newDef.getType() != null && !newDef.getType().trim().isEmpty()) {
+            String actualType = resolveType(tableName, columnName, newDef.getType());
+            jdbcTemplate.execute("ALTER TABLE user_data." + quote(tableName) + " ALTER COLUMN " + quote(columnName) + " TYPE " + actualType + " USING " + quote(columnName) + "::" + actualType);
+        }
+
         // Drop or Set Default
         if (newDef.getDefaultValue() == null || newDef.getDefaultValue().trim().isEmpty()) {
             jdbcTemplate.execute("ALTER TABLE user_data." + quote(tableName) + " ALTER COLUMN " + quote(columnName) + " DROP DEFAULT");
