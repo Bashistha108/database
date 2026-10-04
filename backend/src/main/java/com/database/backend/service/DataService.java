@@ -117,7 +117,20 @@ public class DataService {
         });
 
         String columns = rowData.keySet().stream().map(this::quote).collect(Collectors.joining(", "));
-        String placeholders = rowData.keySet().stream().map(k -> "?").collect(Collectors.joining(", "));
+        String placeholders = rowData.keySet().stream().map(k -> {
+            Map<String, Object> col = columnsInfo.stream().filter(c -> k.equals(c.get("name"))).findFirst().orElse(null);
+            if (col != null) {
+                String type = String.valueOf(col.get("type"));
+                if (type.startsWith("ENUM")) {
+                    return "?::user_data." + quote(String.valueOf(col.get("udtName")));
+                } else if (type.toLowerCase().contains("timestamp")) {
+                    return "?::timestamp";
+                } else if (type.equalsIgnoreCase("date")) {
+                    return "?::date";
+                }
+            }
+            return "?";
+        }).collect(Collectors.joining(", "));
         Object[] values = rowData.values().toArray();
 
         String sql = "INSERT INTO user_data." + quote(tableName) + " (" + columns + ") VALUES (" + placeholders + ")";
@@ -128,8 +141,22 @@ public class DataService {
         if (updateData.isEmpty() || pkValues.isEmpty()) return;
         parseByteaColumns(tableName, updateData);
 
+        List<Map<String, Object>> columnsInfo = schemaMetadataService.getTableColumns(tableName);
         String setClause = updateData.keySet().stream()
-            .map(k -> quote(k) + " = ?")
+            .map(k -> {
+                Map<String, Object> col = columnsInfo.stream().filter(c -> k.equals(c.get("name"))).findFirst().orElse(null);
+                if (col != null) {
+                    String type = String.valueOf(col.get("type"));
+                    if (type.startsWith("ENUM")) {
+                        return quote(k) + " = ?::user_data." + quote(String.valueOf(col.get("udtName")));
+                    } else if (type.toLowerCase().contains("timestamp")) {
+                        return quote(k) + " = ?::timestamp";
+                    } else if (type.equalsIgnoreCase("date")) {
+                        return quote(k) + " = ?::date";
+                    }
+                }
+                return quote(k) + " = ?";
+            })
             .collect(Collectors.joining(", "));
             
         String whereClause = pkValues.keySet().stream()
