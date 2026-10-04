@@ -3,6 +3,136 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Edit2, Plus, Trash2, Image as Ima
 import { Toast } from '../components/Toast';
 import { ConfirmModal } from '../components/ConfirmModal';
 
+const CustomDateTimePicker = ({ value, onChange, disabled }: { value: any, onChange: (v: string) => void, disabled?: boolean }) => {
+  const parseInit = (v: any) => {
+    if (!v) return new Date();
+    const d = new Date(typeof v === 'string' ? v.replace(' ', 'T') : v);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+  
+  const initDate = parseInit(value);
+  const [year, setYear] = useState(initDate.getFullYear().toString());
+  const [month, setMonth] = useState((initDate.getMonth() + 1).toString().padStart(2, '0'));
+  const [day, setDay] = useState(initDate.getDate().toString().padStart(2, '0'));
+  const [hour, setHour] = useState(initDate.getHours().toString().padStart(2, '0'));
+  const [minute, setMinute] = useState(initDate.getMinutes().toString().padStart(2, '0'));
+
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current && !value) {
+       onChange(`${year}-${month}-${day}T${hour}:${minute}:00`);
+       isFirstRender.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (year.length === 4 && month && day && hour && minute) {
+       const str = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
+       if (value !== str) onChange(str);
+    }
+  }, [year, month, day, hour, minute]);
+
+  useEffect(() => {
+    if (value && typeof value === 'string') {
+      const d = new Date(value.replace(' ', 'T'));
+      if (!isNaN(d.getTime())) {
+         const y = d.getFullYear().toString();
+         const m = (d.getMonth() + 1).toString().padStart(2, '0');
+         const da = d.getDate().toString().padStart(2, '0');
+         const h = d.getHours().toString().padStart(2, '0');
+         const mi = d.getMinutes().toString().padStart(2, '0');
+         if (y !== year) setYear(y);
+         if (m !== month) setMonth(m);
+         if (da !== day) setDay(da);
+         if (h !== hour) setHour(h);
+         if (mi !== minute) setMinute(mi);
+      }
+    }
+  }, [value]);
+
+  const inputStyle = {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: 'white',
+    outline: 'none',
+    textAlign: 'center' as const,
+    width: '32px',
+    padding: '0',
+    fontSize: '0.9rem',
+    fontFamily: 'monospace'
+  };
+
+  const handleBlur = (val: string, setter: any, max: number, min: number = 0) => {
+    let num = parseInt(val, 10);
+    if (isNaN(num)) num = min;
+    if (num > max) num = max;
+    if (num < min) num = min;
+    setter(num.toString().padStart(2, '0'));
+  };
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.25rem',
+      padding: '0.75rem 1rem',
+      borderRadius: '0.5rem',
+      backgroundColor: 'var(--bg-dark)',
+      border: '1px solid var(--border-color)',
+      opacity: disabled ? 0.5 : 1,
+      pointerEvents: disabled ? 'none' : 'auto',
+      width: 'fit-content'
+    }}>
+      <input 
+        style={{ ...inputStyle, width: '40px' }} 
+        value={year} 
+        onChange={e => setYear(e.target.value.replace(/\D/g, '').slice(0,4))}
+        onBlur={() => {
+           let y = parseInt(year);
+           if (isNaN(y) || y < 1900) y = new Date().getFullYear();
+           setYear(y.toString());
+        }}
+        placeholder="YYYY"
+      />
+      <span style={{ color: 'var(--text-secondary)' }}>/</span>
+      <input 
+        style={inputStyle} 
+        value={month} 
+        onChange={e => setMonth(e.target.value.replace(/\D/g, '').slice(0,2))}
+        onBlur={() => handleBlur(month, setMonth, 12, 1)}
+        placeholder="MM"
+      />
+      <span style={{ color: 'var(--text-secondary)' }}>/</span>
+      <input 
+        style={inputStyle} 
+        value={day} 
+        onChange={e => setDay(e.target.value.replace(/\D/g, '').slice(0,2))}
+        onBlur={() => handleBlur(day, setDay, 31, 1)}
+        placeholder="DD"
+      />
+      <span style={{ color: 'var(--text-secondary)', margin: '0 0.5rem' }}>-</span>
+      <input 
+        style={inputStyle} 
+        value={hour} 
+        onChange={e => setHour(e.target.value.replace(/\D/g, '').slice(0,2))}
+        onBlur={() => handleBlur(hour, setHour, 23, 0)}
+        placeholder="HH"
+      />
+      <span style={{ color: 'var(--text-secondary)' }}>:</span>
+      <input 
+        style={inputStyle} 
+        value={minute} 
+        onChange={e => setMinute(e.target.value.replace(/\D/g, '').slice(0,2))}
+        onBlur={() => handleBlur(minute, setMinute, 59, 0)}
+        placeholder="MM"
+      />
+      <span style={{ color: 'var(--text-secondary)' }}>:</span>
+      <span style={{ color: 'var(--text-secondary)', width: '32px', textAlign: 'center', fontSize: '0.9rem', fontFamily: 'monospace' }}>00</span>
+    </div>
+  );
+};
+
 export default function BrowseData() {
   const [tables, setTables] = useState<any[]>([]);
   const [selectedTable, setSelectedTable] = useState('');
@@ -464,11 +594,37 @@ export default function BrowseData() {
                         checked={!!formData[c.name]}
                         onChange={e => setFormData({...formData, [c.name]: e.target.checked})}
                       />
+                    ) : c.type.startsWith('ENUM') ? (
+                      <select
+                        style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: 'white', outline: 'none' }}
+                        value={formData[c.name] || ''}
+                        onChange={e => setFormData({...formData, [c.name]: e.target.value})}
+                        required={showAsterisk}
+                      >
+                        <option value="">Select value...</option>
+                        {c.type.substring(5, c.type.length - 1).split(',').map((val: string) => {
+                          const cleanVal = val.trim().replace(/^'|'$/g, '');
+                          return <option key={cleanVal} value={cleanVal}>{cleanVal}</option>;
+                        })}
+                      </select>
+                    ) : c.type.toUpperCase().includes('TIMESTAMP') ? (
+                      <CustomDateTimePicker
+                        value={formData[c.name]}
+                        onChange={(v) => setFormData(prev => ({...prev, [c.name]: v}))}
+                        disabled={(isEditing && primaryKey?.columns?.includes(c.name)) || (!isEditing && isAutoGenerated)}
+                      />
                     ) : (
                       <input 
-                        type={c.type.toUpperCase().includes('INT') || c.type.toUpperCase().includes('NUMERIC') ? 'number' : 'text'}
+                        type={
+                          c.type.toUpperCase() === 'DATE' ? 'date' :
+                          c.type.toUpperCase().includes('INT') || c.type.toUpperCase().includes('NUMERIC') ? 'number' : 'text'
+                        }
                         style={{ width: '100%', padding: '0.5rem', borderRadius: '0.25rem', backgroundColor: 'var(--bg-dark)', border: '1px solid var(--border-color)', color: 'white', outline: 'none', opacity: ((isEditing && primaryKey?.columns?.includes(c.name)) || (!isEditing && isAutoGenerated)) ? 0.5 : 1 }}
-                        value={formData[c.name] ?? ''}
+                        value={
+                          c.type.toUpperCase() === 'DATE' && formData[c.name]
+                            ? String(formData[c.name]).slice(0, 10)
+                            : formData[c.name] ?? ''
+                        }
                         disabled={(isEditing && primaryKey?.columns?.includes(c.name)) || (!isEditing && isAutoGenerated)}
                         onChange={e => {
                           let val: any = e.target.value;

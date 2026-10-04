@@ -34,7 +34,8 @@ public class SchemaMetadataService {
                      "              WHERE t.typname = c.udt_name GROUP BY t.typname), c.udt_name) " +
                      "  ELSE c.data_type END as \"type\", " +
                      "  c.is_nullable as \"nullable\", " +
-                     "  c.column_default as \"defaultValue\" " +
+                     "  c.column_default as \"defaultValue\", " +
+                     "  c.udt_name as \"udtName\" " +
                      "FROM information_schema.columns c " +
                      "WHERE c.table_schema = 'user_data' AND c.table_name = ? " +
                      "ORDER BY c.ordinal_position";
